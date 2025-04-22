@@ -8,11 +8,13 @@ to identify speaker segments.
 import logging
 import os
 from typing import Optional
+from functools import lru_cache
 
 import torch
 from huggingface_hub import hf_hub_download
 from pyannote.audio import Pipeline
 from pyannote.core import Annotation
+from .utils import get_device
 
 # Constants
 DIARIZATION_MODEL_REPO = "pyannote/speaker-diarization-3.1"
@@ -30,6 +32,7 @@ def _get_auth_token() -> Optional[str]:
     """Retrieves the Hugging Face auth token from environment variables."""
     return os.environ.get("HUGGING_FACE_HUB_TOKEN")
 
+@lru_cache(maxsize=1) # Cache the pipeline after first load
 def load_diarization_pipeline() -> Pipeline:
     """Loads the diarization pipeline, potentially using a cached version.
 
@@ -56,10 +59,9 @@ def load_diarization_pipeline() -> Pipeline:
         logging.info("Hugging Face Hub token found. Proceeding with pipeline loading.")
 
     try:
-        device_str = "cuda" if torch.cuda.is_available() else "cpu"
-        logging.info(f"Using device: {device_str} for diarization pipeline")
-        # Create the torch.device object
-        device = torch.device(device_str)
+        # Get the appropriate device (cuda or cpu) using the utility function
+        # The utility function handles logging the device choice.
+        device: torch.device = get_device()
 
         # Download config.yaml first to potentially get class hints
         hf_hub_download(
@@ -74,7 +76,7 @@ def load_diarization_pipeline() -> Pipeline:
             use_auth_token=hf_token # Pass the token explicitly
         )
         # Move pipeline to the selected device
-        pipeline.to(device) # Use the created torch.device object
+        pipeline.to(device)
         _diarization_pipeline = pipeline
         logging.info("Diarization pipeline loaded successfully.")
         return _diarization_pipeline
