@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
         is_enabled = bool(state)
         self.speaker_count_label.setVisible(is_enabled)
         self.speaker_count_spinbox.setVisible(is_enabled)
+        self.speaker_count_spinbox.setEnabled(is_enabled) # Also control enabled state
         if not is_enabled:
             self.speaker_count_spinbox.setValue(0) # Reset to auto when disabled
 
