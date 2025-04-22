@@ -15,6 +15,7 @@ from huggingface_hub import hf_hub_download
 from pyannote.audio import Pipeline
 from pyannote.core import Annotation
 from .utils import get_device
+from .exceptions import DiarizationError
 
 # Constants
 DIARIZATION_MODEL_REPO = "pyannote/speaker-diarization-3.1"
@@ -23,10 +24,6 @@ CONFIG_YAML_FILENAME = "config.yaml"
 
 # Global variable to cache the pipeline
 _diarization_pipeline: Optional[Pipeline] = None
-
-class DiarizationError(Exception):
-    """Custom exception for diarization errors."""
-    pass
 
 def _get_auth_token() -> Optional[str]:
     """Retrieves the Hugging Face auth token from environment variables."""
