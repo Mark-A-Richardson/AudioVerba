@@ -104,3 +104,7 @@ logs/
 
 # Cascade specific files
 .windsurfrules
+
+# Test Media
+Test_Video.mp4
+Test_Audio.mp3
