@@ -1,5 +1,7 @@
 # AudioVerba
 
+**Note:** This project is currently under development and is considered a work in progress.
+
 Desktop audio transcription tool powered by Reverb ASR.
 
 ## Project Setup

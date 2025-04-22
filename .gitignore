@@ -91,6 +91,7 @@ dmypy.json
 
 # vscode settings
 .vscode/
+.idea/
 
 # Application Specific
 %APPDATA%/AudioVerba/
@@ -100,3 +101,6 @@ logs/
 *.mp4
 *.mov
 *.mp3
+
+# Cascade specific files
+.windsurfrules
