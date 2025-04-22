@@ -99,19 +99,23 @@ def transcribe_audio(wav_file_path: str,
     logging.info(f"Starting transcription for: {wav_file_path}")
     logging.info(f"Using speaker count setting: {'Auto' if diarize_mode == DiarizeMode.AUTO else 'Manual' if diarize_mode == DiarizeMode.MANUAL else 'Off'}")
 
-    # Ensure the diarization pipeline is loaded if needed (can be done once at startup too)
-    # Or potentially call it inside the 'if diarize_mode != DiarizeMode.OFF:' block
-    try:
-        core_load_diarization_pipeline() # Ensure it's loaded
-    except DiarizationError as e:
-        logging.warning(f"Could not pre-load diarization pipeline (might load on demand): {e}")
-        # Decide if this should be a fatal error or just a warning
-
     diarization_info: Optional[Annotation] = None
     diarization_error_msg: Optional[str] = None
 
     # --- Diarization Step (Optional) ---
     if diarize_mode != DiarizeMode.OFF:
+        # --- Load Diarization Pipeline (only if needed) --- 
+        try:
+            core_load_diarization_pipeline() # Ensure it's loaded
+        except DiarizationError as e:
+            logging.warning(f"Could not load diarization pipeline: {e}")
+            # Treat this as a failure for the diarization step
+            diarization_error_msg = f"Diarization Failed: Could not load pipeline - {e}"
+            diarization_info = None
+            # Skip the rest of the diarization attempt if loading failed
+            # Proceed to transcription, but with the diarization error message.
+            # We'll check diarization_error_msg before trying to run diarization.
+
         logging.info(f"Diarization requested (Mode: {diarize_mode.name})")
         num_speakers_to_pass = num_speakers_manual if diarize_mode == DiarizeMode.MANUAL else None
         if diarize_mode == DiarizeMode.AUTO:
@@ -119,27 +123,30 @@ def transcribe_audio(wav_file_path: str,
         elif num_speakers_to_pass:
              logging.info(f"Using manual speaker count: {num_speakers_to_pass}")
 
-        try:
-            # Call the *actual* run_diarization from the core module
-            diarization_info = core_run_diarization(wav_file_path, num_speakers=num_speakers_to_pass)
-            logging.info(f"core_run_diarization returned object of type: {type(diarization_info)}")
+        # --- Run Diarization (only if loading succeeded) ---
+        if diarization_error_msg is None: # Only run if loading didn't already fail
+            try:
+                # Call the *actual* run_diarization from the core module
+                diarization_info = core_run_diarization(wav_file_path, num_speakers=num_speakers_to_pass)
+                logging.info(f"core_run_diarization returned object of type: {type(diarization_info)}")
 
-            if diarization_info:
-                logging.info("Diarization successful.")
-            else:
-                # Handle case where run_diarization returns None or empty annotation
-                logging.warning("Diarization process returned no annotation.")
+                if diarization_info:
+                    logging.info("Diarization successful.")
+                else:
+                    # Handle case where run_diarization returns None or empty annotation
+                    logging.warning("Diarization process returned no annotation.")
+                    diarization_info = None
+                    diarization_error_msg = "Diarization completed but produced no speaker segments."
+
+            except DiarizationError as e:
+                logging.error(f"Diarization failed during run: {e}")
+                diarization_error_msg = f"Diarization Failed: {e}"
                 diarization_info = None
-                diarization_error_msg = "Diarization completed but produced no speaker segments."
-
-        except DiarizationError as e:
-            logging.error(f"Diarization failed during run: {e}")
-            diarization_error_msg = f"Diarization Failed: {e}"
-            diarization_info = None
-        except Exception as e:
-            logging.exception(f"An unexpected error occurred during diarization: {e}")
-            diarization_error_msg = f"Diarization Failed: Unexpected error - {e}"
-            diarization_info = None
+            except Exception as e:
+                logging.exception(f"An unexpected error occurred during diarization: {e}")
+                diarization_error_msg = f"Diarization Failed: Unexpected error - {e}"
+                diarization_info = None
+        # else: diarization_error_msg already contains the loading failure message
 
     # --- Transcription Step ---
     # Parameters based on spec and assumptions from wenet usage
