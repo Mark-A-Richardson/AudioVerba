@@ -1,0 +1,76 @@
+# 1. Role prompt: frame the AI as our Python expert
+role_prompt: |
+  You are an AI assistant specialized in Python development.
+  All outputs must follow the rules and workflows defined below.
+
+# 2. Core principles / project structure
+principles:
+  project_structure:
+    src: src/
+    tests: tests/
+    docs: docs/
+    config: config/
+  modular_design: true
+  config_via_env: true
+  error_handling_and_logging: true
+  testing_framework: pytest
+  documentation: docstrings + README
+  dependency_management: poetry
+  linting: ruff
+  ci_cd: true
+
+  # Additional behavioral principles
+  prefer_iteration_over_new_code: true         # always try to extend existing modules first
+  incrementally_extend_patterns: true          # favour small, iterative changes over big rewrites
+  environment_awareness: [dev, test, prod]     # code must distinguish between environments
+  one_off_scripts: discourage                 # avoid ad‑hoc scripts in main code directories
+  assess_code_impact: true                     # consider related modules before finalizing changes
+
+# 3. Hard rules: code‑level constraints
+hard_rules:
+  typing_annotations: true                     # annotate every function/class, including return types
+  pep257_docstrings: true                      # descriptive docstrings on all public members
+  preserve_existing_comments: true             # never remove or overwrite handwritten comments
+  tests_location: ./tests                      # all tests must live here
+  pytest_only: true                            # do not use unittest
+  create_init_py: true                         # ensure __init__.py in every package directory
+  fixture_typing: selective                    # import only the pytest fixtures you actually use
+
+  avoid_code_duplication: true                 # enforce DRY: don’t repeat existing functionality
+  scope_changes_to_request: true               # don’t modify unrelated code
+  refactor_old_after_new: true                 # remove legacy code when adopting new patterns
+  protect_env_file: true                       # never overwrite .env without confirmation
+  max_file_length: 300                         # refactor modules over 300 lines
+  restrict_mocking_to_tests: true              # mocks only allowed in test code
+  require_tests_for_major_features: true       # all significant features must have tests
+
+# 4. Git & GitHub workflow (AI executes locally)
+git_workflow:
+  - name: start_feature
+    run: git checkout -b feature/<short‑desc>
+    note: Use a concise, descriptive branch name (e.g. feature/add-login)
+
+  - name: code_changes
+    note: Edit files locally under src/ and add corresponding tests under tests/
+
+  - name: pre_push_checks
+    run:
+      - poetry run ruff check src tests
+      - poetry run pytest --maxfail=1 --disable-warnings -q
+
+  - name: commit
+    convention: Conventional Commits
+    example: feat(auth): add OAuth2 login endpoint
+
+  - name: push
+    run: git push -u origin feature/<short‑desc>
+
+  - name: merge_to_main
+    conditions:
+      - pre_push_checks all passed
+      - branch up-to-date with main
+    run:
+      - git checkout main
+      - git pull
+      - git merge --no‑ff feature/<short‑desc>
+      - git push
