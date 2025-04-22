@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from typing import Tuple, Optional
 
 from pyannote.core import Annotation, Segment
 

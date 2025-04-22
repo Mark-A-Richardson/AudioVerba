@@ -1,27 +1,22 @@
 import logging
 import os
-import torch
 import wenet
 from typing import Any, Optional, Tuple
 from enum import Enum
 from pyannote.core import Annotation
 from .diarization import (
     run_diarization as core_run_diarization, # Alias to avoid name clash if needed
-    load_diarization_pipeline as core_load_diarization_pipeline,
-    DiarizationError
+    load_diarization_pipeline as core_load_diarization_pipeline # Alias if needed
 )
+from .exceptions import TranscriptionError, DiarizationError
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Model name for automatic download via HuggingFace
-REVERB_MODEL_NAME = "reverb_asr_v1" # Corresponds to Rev's model
+REVERB_MODEL_NAME = "reverb_asr_v1" # Correct name based on wenet error
 # TODO: Allow specifying local model path via config later?
 # LOCAL_MODEL_PATH = None # Example: "/path/to/local/reverb-model-dir"
-
-class TranscriptionError(Exception):
-    """Custom exception for transcription errors."""
-    pass
 
 class DiarizeMode(Enum):
     OFF = "off"
@@ -34,31 +29,23 @@ reverb_pipeline: Any | None = None
 
 def load_reverb_model() -> None:
     """Loads the Reverb ASR model and configures the pipeline.
-
-    TODO: Handle model path resolution (allow local path override).
-          Configure GPU usage if available.
+ 
+    Handles device placement (GPU/CPU) automatically.
     """
     global reverb_pipeline
     if reverb_pipeline is None:
         logging.info(f"Loading Reverb ASR model ('{REVERB_MODEL_NAME}')... This may take time.")
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        logging.info(f"Using device: {device}")
-
+        
         try:
             # load_model downloads from HuggingFace if name is provided,
             # or loads from local path if path is provided.
-            # We assume 'reverb_asr_v1' is the correct HuggingFace identifier.
-            # TODO: Check if model needs specific config/checkpoint paths or just name
             reverb_pipeline = wenet.load_model(
-                REVERB_MODEL_NAME,
-                # gpu=0 if device == "cuda" else -1 # wenet might use gpu arg?
-                # Check wenet.load_model signature if needed
+                REVERB_MODEL_NAME # Load model with default settings
             )
-            # TODO: Verify how device is set - might be post-load or via load_model arg
-            # If load_model doesn't handle device, might need:
-            # reverb_pipeline.to(device)
-
-            logging.info(f"Reverb ASR model '{REVERB_MODEL_NAME}' loaded successfully onto {device}.")
+            
+            # We assume wenet handles device internally or defaults to CPU if GPU not found/configured
+            # TODO: Investigate wenet's specific mechanism for GPU control if needed.
+            logging.info(f"Reverb ASR model '{REVERB_MODEL_NAME}' loaded successfully.")
         except Exception as e:
             logging.exception(f"Failed to load Reverb ASR model '{REVERB_MODEL_NAME}'.")
             # Reset pipeline to ensure it's not partially loaded

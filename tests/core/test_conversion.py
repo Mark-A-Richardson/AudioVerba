@@ -1,6 +1,5 @@
 import pytest
 from pathlib import Path
-import os
 
 from audioverba.core.conversion import convert_to_wav, ConversionError
 

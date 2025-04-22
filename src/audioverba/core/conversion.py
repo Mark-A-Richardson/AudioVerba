@@ -2,15 +2,12 @@ import os
 import subprocess
 import logging
 import tempfile
+from .exceptions import ConversionError
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 FFMPEG_PATH = "ffmpeg" # Assuming ffmpeg is in PATH for now
-
-class ConversionError(Exception):
-    """Custom exception for FFmpeg conversion errors."""
-    pass
 
 def convert_to_wav(input_file_path: str) -> str:
     """Converts an audio/video file to 16kHz, 16-bit PCM mono WAV using FFmpeg.
