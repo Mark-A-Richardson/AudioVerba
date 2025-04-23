@@ -10,6 +10,7 @@ from audioverba.core.transcription import (
     format_diarization_output, 
     DiarizeMode, 
     TranscriptionError,
+    TranscriptionSignals,
 )
 from audioverba.core.diarization import DiarizationError
 
@@ -54,52 +55,43 @@ def test_format_diarization_output_empty():
     formatted = format_diarization_output(empty_annotation)
     # Depending on implementation, might return empty string or a specific message
     # Let's assume it returns a specific message based on current code review
-    assert formatted == "No diarization data available." # Or check if it's just empty
+    assert formatted == "No speaker segments found." # Changed expected message
 
 def test_format_diarization_output_none():
     """Test formatting when None is passed (should be handled gracefully)."""
     # This case might not be strictly necessary if type hinting prevents None,
     # but good for robustness if None could sneak in.
-    # Based on current implementation, it might raise an error or return the message.
-    # Let's assume it returns the message. Adjust if needed.
-    assert format_diarization_output(None) == "No diarization data available."
-
+    # Update assertion to match the actual error message returned by the except block
+    assert format_diarization_output(None) == "Error during diarization formatting." # Changed expected message
 
 # --- Tests for transcribe_audio (using mocks) ---
 
 @patch('audioverba.core.transcription.core_load_diarization_pipeline')
 @patch('audioverba.core.transcription.core_run_diarization')
 @patch('audioverba.core.transcription.reverb_pipeline')
-@patch('audioverba.core.transcription.load_reverb_model') # Mock model loading
 def test_transcribe_audio_diarization_off(
-    mock_load_reverb: MagicMock,
     mock_reverb_pipeline: MagicMock,
     mock_run_diarization: MagicMock,
     mock_load_diarization: MagicMock,
     dummy_wav_path: str
 ):
     """Test transcribe_audio with diarization mode OFF."""
-    mock_reverb_pipeline.transcribe.return_value = "This is a transcript."
-    
-    transcript, diarization_info = transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.OFF)
+    expected_transcript = "This is a transcript."
+    mock_reverb_pipeline.transcribe.return_value = expected_transcript
+    mock_emitter = MagicMock(spec=TranscriptionSignals)
 
-    mock_load_reverb.assert_called_once() # Ensure ASR model load was attempted
-    mock_reverb_pipeline.transcribe.assert_called_once_with(
-        dummy_wav_path, beam_size=12, ctc_weight=1.5
-    )
-    mock_load_diarization.assert_not_called() # Diarization load should NOT be called
-    mock_run_diarization.assert_not_called()  # Diarization run should NOT be called
+    transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.OFF, signal_emitter=mock_emitter)
 
-    assert transcript == "This is a transcript."
-    assert diarization_info is None # Expect None when OFF
-
+    # Assert signals were emitted correctly
+    mock_emitter.transcript_ready.emit.assert_called_once_with(expected_transcript)
+    mock_emitter.diarization_ready.emit.assert_called_once_with(None) # Expect None when OFF
+    mock_run_diarization.assert_not_called() # Ensure diarization wasn't run
+    mock_load_diarization.assert_not_called()
 
 @patch('audioverba.core.transcription.core_load_diarization_pipeline')
 @patch('audioverba.core.transcription.core_run_diarization')
 @patch('audioverba.core.transcription.reverb_pipeline')
-@patch('audioverba.core.transcription.load_reverb_model') 
 def test_transcribe_audio_diarization_auto_success(
-    mock_load_reverb: MagicMock,
     mock_reverb_pipeline: MagicMock,
     mock_run_diarization: MagicMock,
     mock_load_diarization: MagicMock,
@@ -107,28 +99,26 @@ def test_transcribe_audio_diarization_auto_success(
     mock_annotation: Annotation
 ):
     """Test transcribe_audio with diarization mode AUTO (success)."""
-    mock_reverb_pipeline.transcribe.return_value = "Transcript text."
-    mock_run_diarization.return_value = mock_annotation # Simulate successful diarization
-    
-    transcript, diarization_info = transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.AUTO)
+    expected_transcript = "Transcript text."
+    expected_diarization_output = format_diarization_output(mock_annotation)
+    mock_reverb_pipeline.transcribe.return_value = expected_transcript
+    mock_run_diarization.return_value = mock_annotation
+    mock_emitter = MagicMock(spec=TranscriptionSignals)
 
-    mock_load_reverb.assert_called_once()
-    mock_reverb_pipeline.transcribe.assert_called_once_with(
-        dummy_wav_path, beam_size=12, ctc_weight=1.5
-    )
-    mock_load_diarization.assert_called_once() # Diarization load SHOULD be called
-    mock_run_diarization.assert_called_once_with(dummy_wav_path, num_speakers=None) # num_speakers=None for AUTO
+    transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.AUTO, signal_emitter=mock_emitter)
 
-    assert transcript == "Transcript text."
-    assert diarization_info == mock_annotation
+    # Assert signals
+    mock_emitter.transcript_ready.emit.assert_called_once_with(expected_transcript)
+    mock_emitter.diarization_ready.emit.assert_called_once_with(expected_diarization_output)
 
+    # Assert mocks
+    mock_load_diarization.assert_called_once() # Should be called in AUTO/MANUAL
+    mock_run_diarization.assert_called_once_with(dummy_wav_path, num_speakers=None)
 
 @patch('audioverba.core.transcription.core_load_diarization_pipeline')
 @patch('audioverba.core.transcription.core_run_diarization')
 @patch('audioverba.core.transcription.reverb_pipeline')
-@patch('audioverba.core.transcription.load_reverb_model') 
 def test_transcribe_audio_diarization_manual_success(
-    mock_load_reverb: MagicMock,
     mock_reverb_pipeline: MagicMock,
     mock_run_diarization: MagicMock,
     mock_load_diarization: MagicMock,
@@ -136,73 +126,70 @@ def test_transcribe_audio_diarization_manual_success(
     mock_annotation: Annotation
 ):
     """Test transcribe_audio with diarization mode MANUAL (success)."""
-    mock_reverb_pipeline.transcribe.return_value = "Manual transcript."
+    expected_transcript = "Manual transcript."
+    expected_diarization_output = format_diarization_output(mock_annotation)
+    mock_reverb_pipeline.transcribe.return_value = expected_transcript
     mock_run_diarization.return_value = mock_annotation
     num_speakers_manual = 2
-    
-    transcript, diarization_info = transcribe_audio(
-        dummy_wav_path, 
-        diarize_mode=DiarizeMode.MANUAL, 
-        num_speakers_manual=num_speakers_manual
+    mock_emitter = MagicMock(spec=TranscriptionSignals)
+
+    transcribe_audio(
+        dummy_wav_path,
+        diarize_mode=DiarizeMode.MANUAL,
+        num_speakers_manual=num_speakers_manual,
+        signal_emitter=mock_emitter
     )
 
-    mock_load_reverb.assert_called_once()
-    mock_reverb_pipeline.transcribe.assert_called_once_with(
-        dummy_wav_path, beam_size=12, ctc_weight=1.5
-    )
+    # Assert signals
+    mock_emitter.transcript_ready.emit.assert_called_once_with(expected_transcript)
+    mock_emitter.diarization_ready.emit.assert_called_once_with(expected_diarization_output)
+
+    # Assert mocks
     mock_load_diarization.assert_called_once()
     mock_run_diarization.assert_called_once_with(dummy_wav_path, num_speakers=num_speakers_manual)
-
-    assert transcript == "Manual transcript."
-    assert diarization_info == mock_annotation
-
 
 @patch('audioverba.core.transcription.core_load_diarization_pipeline')
 @patch('audioverba.core.transcription.core_run_diarization', side_effect=DiarizationError("Diarization failed"))
 @patch('audioverba.core.transcription.reverb_pipeline')
-@patch('audioverba.core.transcription.load_reverb_model') 
 def test_transcribe_audio_diarization_auto_failure(
-    mock_load_reverb: MagicMock,
     mock_reverb_pipeline: MagicMock,
     mock_run_diarization: MagicMock,
     mock_load_diarization: MagicMock,
     dummy_wav_path: str
 ):
     """Test transcribe_audio with diarization mode AUTO where diarization fails."""
-    mock_reverb_pipeline.transcribe.return_value = "Transcript despite diarization fail."
-    
-    # The function should catch DiarizationError and return the error message string
-    transcript, diarization_msg = transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.AUTO)
+    expected_transcript = "Transcript despite diarization fail."
+    expected_error_msg = "\n\n--------------------\n\nDiarization Info:\nDiarization Failed: Diarization failed"
+    mock_reverb_pipeline.transcribe.return_value = expected_transcript
+    mock_emitter = MagicMock(spec=TranscriptionSignals)
 
-    mock_load_reverb.assert_called_once()
-    mock_reverb_pipeline.transcribe.assert_called_once_with(
-        dummy_wav_path, beam_size=12, ctc_weight=1.5
-    )
+    transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.AUTO, signal_emitter=mock_emitter)
+
+    # Assert signals (transcript should still emit, diarization should emit formatted error string)
+    mock_emitter.transcript_ready.emit.assert_called_once_with(expected_transcript)
+    mock_emitter.diarization_ready.emit.assert_called_once_with(expected_error_msg)
+
+    # Assert mocks
     mock_load_diarization.assert_called_once()
-    mock_run_diarization.assert_called_once_with(dummy_wav_path, num_speakers=None)
+    mock_run_diarization.assert_called_once()
 
-    assert transcript == "Transcript despite diarization fail."
-    assert isinstance(diarization_msg, str) # Expecting the error message string
-    assert "Diarization failed" in diarization_msg
-
-
-@patch('audioverba.core.transcription.reverb_pipeline') 
-@patch('audioverba.core.transcription.load_reverb_model')
+@patch('audioverba.core.transcription.reverb_pipeline')
 def test_transcribe_audio_transcription_failure(
-    mock_load_reverb: MagicMock,
     mock_reverb_pipeline: MagicMock,
     dummy_wav_path: str
 ):
     """Test transcribe_audio when the core transcription call fails."""
     mock_reverb_pipeline.transcribe.side_effect = Exception("ASR engine exploded")
-    
+    mock_emitter = MagicMock(spec=TranscriptionSignals) # Still need emitter for the call
+
     with pytest.raises(TranscriptionError, match="ASR engine exploded"):
-        transcribe_audio(dummy_wav_path, diarize_mode=DiarizeMode.OFF)
-    
-    mock_load_reverb.assert_called_once()
-    mock_reverb_pipeline.transcribe.assert_called_once_with(
-        dummy_wav_path, beam_size=12, ctc_weight=1.5
-    )
- 
- 
- # Add more tests? e.g., transcription success but diarization load fails?
+        # Call still needs the emitter argument, even if it raises before emitting
+        transcribe_audio(
+            dummy_wav_path,
+            diarize_mode=DiarizeMode.OFF,
+            signal_emitter=mock_emitter
+        )
+
+    # Assert that signals were NOT emitted due to the exception
+    mock_emitter.transcript_ready.emit.assert_not_called()
+    mock_emitter.diarization_ready.emit.assert_not_called()

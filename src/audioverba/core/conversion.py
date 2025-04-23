@@ -5,7 +5,7 @@ import tempfile
 from .exceptions import ConversionError
 
 # Setup basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+log = logging.getLogger(__name__)
 
 FFMPEG_PATH = "ffmpeg" # Assuming ffmpeg is in PATH for now
 
@@ -39,7 +39,7 @@ def convert_to_wav(input_file_path: str) -> str:
         output_file_path
     ]
 
-    logging.info(f"Running FFmpeg command: {' '.join(command)}")
+    log.info(f"Running FFmpeg command: {' '.join(command)}")
 
     try:
         # Use capture_output=True to get stdout/stderr
@@ -49,17 +49,17 @@ def convert_to_wav(input_file_path: str) -> str:
             capture_output=True,
             text=True # Decode stdout/stderr as text
         )
-        logging.info(f"FFmpeg conversion successful for {input_file_path}")
-        logging.debug(f"FFmpeg stdout: {result.stdout}")
-        logging.debug(f"FFmpeg stderr: {result.stderr}")
+        log.info(f"FFmpeg conversion successful for {input_file_path}")
+        log.debug(f"FFmpeg stdout: {result.stdout}")
+        log.debug(f"FFmpeg stderr: {result.stderr}")
         return output_file_path
     except FileNotFoundError:
-        logging.error(f"FFmpeg command '{FFMPEG_PATH}' not found. Is FFmpeg installed and in PATH?")
+        log.error(f"FFmpeg command '{FFMPEG_PATH}' not found. Is FFmpeg installed and in PATH?")
         raise ConversionError(f"FFmpeg not found at '{FFMPEG_PATH}'. Ensure it's installed and in PATH.")
     except subprocess.CalledProcessError as e:
-        logging.error(f"FFmpeg conversion failed for {input_file_path}. Exit code: {e.returncode}")
-        logging.error(f"FFmpeg stderr: {e.stderr}")
+        log.error(f"FFmpeg conversion failed for {input_file_path}. Exit code: {e.returncode}")
+        log.error(f"FFmpeg stderr: {e.stderr}")
         raise ConversionError(f"FFmpeg failed: {e.stderr}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred during conversion: {e}")
+        log.error(f"An unexpected error occurred during conversion: {e}")
         raise ConversionError(f"An unexpected error occurred: {e}")
