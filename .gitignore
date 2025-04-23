@@ -108,3 +108,6 @@ logs/
 # Test Media
 Test_Video.mp4
 Test_Audio.mp3
+
+# Ignore downloaded ASR/Diarization models
+data/models/

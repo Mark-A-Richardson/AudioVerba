@@ -22,6 +22,9 @@ DIARIZATION_MODEL_REPO = "pyannote/speaker-diarization-3.1"
 DIARIZATION_MODEL_ALIAS = "dia"
 CONFIG_YAML_FILENAME = "config.yaml"
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 # Global variable to cache the pipeline
 _diarization_pipeline: Optional[Pipeline] = None
 
@@ -141,9 +144,7 @@ def format_diarization_output(annotation: Annotation) -> str:
 
 # Example usage (for testing)
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    # This requires a valid HUGGING_FACE_HUB_TOKEN environment variable
-    # and a sample audio file (e.g., 'sample.wav')
+    # Define path for the pipeline model
     TEST_WAV = 'path/to/your/test_audio.wav' # CHANGE THIS
     EXPECTED_SPEAKERS = None # Or set to an integer e.g. 2
 

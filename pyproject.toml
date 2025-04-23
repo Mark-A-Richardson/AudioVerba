@@ -13,11 +13,22 @@ soundfile = "^0.13.1"
 pyannote-audio = "^3.3.2"
 huggingface-hub = "^0.30.2"
 python-dotenv = "^1.1.0"
+numpy = "<2.0"
+# Explicitly define torch stack with CUDA build from custom source
+torch = { version = "^2.2.2+cu121", source = "pytorch" }
+torchvision = { version = "^0.17.2+cu121", source = "pytorch" }
+torchaudio = { version = "^2.2.2+cu121", source = "pytorch" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 ruff = "^0.1"
+pytest-qt = "^4.4.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
